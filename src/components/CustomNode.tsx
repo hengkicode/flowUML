@@ -47,8 +47,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   const lineHeight = 20;      // Tinggi tiap baris teks
   const paddingY = 4;         // Padding vertikal (atas & bawah)
   const handleSize = 8;       // Ukuran titik Handle (8×8 px)
-  const totalHeight =
-    paddingY + titleHeight + data.lines.length * lineHeight + paddingY;
+  const totalHeight = paddingY + titleHeight + data.lines.length * lineHeight + paddingY;
 
   // ───── EDIT JUDUL ─────
   const startEditingTitle = () => {
@@ -181,7 +180,8 @@ const CustomNode: React.FC<CustomNodeProps> = ({
       {/* ─── AREA BARIS ─── */}
       {data.lines.map((line, idx) => {
         const yOffset = paddingY + titleHeight + idx * lineHeight;
-        const handleTop = (lineHeight - handleSize) / 2;
+        // const handleTop = (lineHeight - handleSize) / 2;
+        const handleTop = 10;
         const leftX = -handleSize / 2;
         const rightX = -handleSize / 2;
 
