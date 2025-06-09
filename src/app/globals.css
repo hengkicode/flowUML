@@ -5,17 +5,37 @@
   --foreground: #171717;
 }
 
-@layer utilities {
-  /* Kelas untuk edge yang ingin di-animate */
-  .edge-dash path {
-    stroke-dasharray: 6 6;       /* pola dash: 6px garis, 6px jarak */
-    animation: dash-move 1s linear infinite;
+/* globals.css */
+
+/* Animasi dashed untuk AnimatedEdge */
+.animated-edge-path {
+  stroke-dasharray: 8 4;     
+  stroke-dashoffset: 0;
+  animation: dashmove 2s linear infinite;
+}
+
+@keyframes dashmove {
+  to {
+    stroke-dashoffset: -12;  /* geser jumlah (8+4) agar loop mulus */
   }
 }
 
-@keyframes dash-move {
-  /* menggerakkan dash ke kiri */
-  to {
-    stroke-dashoffset: -12;
-  }
+/* Highlight saat edge selected */
+/* Pastikan prefix class sesuai versi (@xyflow/react biasanya .react-flow__edge.selected) */
+.react-flow__edge.selected path,
+.react-flow__edge.selected .animated-edge-path {
+  stroke: #1e40af !important;
+  stroke-width: 3 !important;
+}
+
+/* Highlight saat hover */
+.react-flow__edge:hover path,
+.react-flow__edge:hover .animated-edge-path {
+  stroke: #3b82f6 !important;
+  stroke-width: 2.5 !important;
+}
+
+body {
+  margin: 0;
+  font-family: sans-serif;
 }

@@ -1,10 +1,8 @@
+// src/components/CustomNode.tsx
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Handle,
-  Position,
-} from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 
 export type Line = {
   id: string;
@@ -12,8 +10,8 @@ export type Line = {
 };
 
 export type CustomNodeData = {
-  title: string;       // Judul yang bisa di-edit
-  lines: Line[];       // Daftar baris teks
+  title: string;
+  lines: Line[];
 };
 
 type CustomNodeProps = {
@@ -31,30 +29,31 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   onChangeTitle,
   onChangeLineText,
 }) => {
-  // ───── STATE EDIT JUDUL ─────
+  // State editing
   const [editingTitle, setEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // ───── STATE EDIT BARIS ─────
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [tempText, setTempText] = useState("");
   const lineInputRef = useRef<HTMLInputElement>(null);
 
-  // ───── UKURAN & PERHITUNGAN ─────
-  const nodeWidth = 180;      // Lebar kotak node
-  const titleHeight = 24;     // Tinggi area judul
-  const lineHeight = 20;      // Tinggi tiap baris teks
-  const paddingY = 4;         // Padding vertikal (atas & bawah)
-  const handleSize = 8;       // Ukuran titik Handle (8×8 px)
+  // Hover highlight
+  const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
+
+  // Ukuran
+  const nodeWidth = 180;
+  const titleHeight = 24;
+  const lineHeight = 24; // sedikit diperbesar agar area klik nyaman
+  const paddingY = 4;
+  const handleSize = 12; // area klik handle lebih besar
   const totalHeight = paddingY + titleHeight + data.lines.length * lineHeight + paddingY;
 
-  // ───── EDIT JUDUL ─────
+  // Edit judul
   const startEditingTitle = () => {
     setEditingTitle(true);
     setTempTitle(data.title);
   };
-
   const finishEditingTitle = () => {
     const trimmed = tempTitle.trim();
     if (trimmed !== "" && trimmed !== data.title) {
@@ -63,7 +62,6 @@ const CustomNode: React.FC<CustomNodeProps> = ({
     setEditingTitle(false);
     setTempTitle("");
   };
-
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       titleInputRef.current?.blur();
@@ -72,7 +70,6 @@ const CustomNode: React.FC<CustomNodeProps> = ({
       setTempTitle("");
     }
   };
-
   useEffect(() => {
     if (editingTitle && titleInputRef.current) {
       titleInputRef.current.focus();
@@ -80,12 +77,11 @@ const CustomNode: React.FC<CustomNodeProps> = ({
     }
   }, [editingTitle]);
 
-  // ───── EDIT BARIS ─────
+  // Edit baris
   const startEditingLine = (lineId: string, currentText: string) => {
     setEditingLineId(lineId);
     setTempText(currentText);
   };
-
   const finishEditingLine = () => {
     if (editingLineId) {
       const trimmed = tempText.trim();
@@ -96,7 +92,6 @@ const CustomNode: React.FC<CustomNodeProps> = ({
     setEditingLineId(null);
     setTempText("");
   };
-
   const handleLineKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       lineInputRef.current?.blur();
@@ -105,7 +100,6 @@ const CustomNode: React.FC<CustomNodeProps> = ({
       setTempText("");
     }
   };
-
   useEffect(() => {
     if (editingLineId && lineInputRef.current) {
       lineInputRef.current.focus();
@@ -116,16 +110,12 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   return (
     <div
       className={`
-        relative
-        bg-white
-        border border-gray-300
-        rounded-md
-        shadow-sm
-        user-select-none
+        relative bg-white border border-gray-300
+        rounded-md shadow-sm user-select-none
       `}
       style={{ width: nodeWidth, height: totalHeight }}
     >
-      {/* ─── AREA JUDUL ─── */}
+      {/* Judul */}
       <div
         className="absolute left-0 right-0 flex items-center px-2"
         style={{ top: paddingY, height: titleHeight }}
@@ -138,94 +128,89 @@ const CustomNode: React.FC<CustomNodeProps> = ({
             onBlur={finishEditingTitle}
             onKeyDown={handleTitleKeyDown}
             className="
-              flex-1
-              h-full
-              px-1
-              text-sm
-              bg-blue-50
-              border border-blue-300
-              rounded
-              focus:outline-none
-              w-20
+              flex-1 h-full px-1 text-sm
+              bg-blue-50 border border-blue-300
+              rounded focus:outline-none
             "
           />
         ) : (
           <div
             onDoubleClick={startEditingTitle}
             className="
-              flex-1
-              h-full
-              px-1
-              text-sm font-semibold text-gray-900
-              truncate
-              cursor-text
-              hover:bg-gray-100
-              rounded
+              flex-1 h-full px-1 text-sm font-semibold text-gray-900
+              truncate cursor-text hover:bg-gray-100 rounded
             "
           >
             {data.title}
           </div>
         )}
       </div>
-
-      {/* ─── GARIS PEMISAH ─── */}
+      {/* Garis pemisah judul */}
       <div
         className="absolute left-1 right-1 bg-gray-200"
-        style={{
-          top: paddingY + titleHeight,
-          height: 1,
-        }}
+        style={{ top: paddingY + titleHeight, height: 1 }}
       />
 
-      {/* ─── AREA BARIS ─── */}
+      {/* Baris */}
       {data.lines.map((line, idx) => {
         const yOffset = paddingY + titleHeight + idx * lineHeight;
-        // const handleTop = (lineHeight - handleSize) / 2;
-        const handleTop = 10;
-        const leftX = -handleSize / 2;
-        const rightX = -handleSize / 2;
+        const handleTop = (lineHeight - handleSize) / 2;
 
-        const leftSourceId = `ls-${id}-${line.id}`;
-        const leftTargetId = `lt-${id}-${line.id}`;
-        const rightSourceId = `rs-${id}-${line.id}`;
-        const rightTargetId = `rt-${id}-${line.id}`;
+        // IDs handle unik
+        const leftSourceId = `source-left-${id}-${line.id}`;
+        const leftTargetId = `target-left-${id}-${line.id}`;
+        const rightSourceId = `source-right-${id}-${line.id}`;
+        const rightTargetId = `target-right-${id}-${line.id}`;
+
+        // Highlight jika hover
+        const isHovered = hoveredLineId === line.id;
 
         return (
           <div
             key={line.id}
-            className="absolute left-0 right-0 flex items-center"
+            className={`absolute left-0 right-0 flex items-center px-1 ${
+              isHovered ? "bg-gray-100" : ""
+            }`}
             style={{ top: yOffset, height: lineHeight }}
+            onMouseEnter={() => setHoveredLineId(line.id)}
+            onMouseLeave={() => setHoveredLineId(null)}
           >
-            {/* Handle Kiri */}
+            {/* Handle kiri: source */}
             <Handle
               type="source"
               id={leftSourceId}
               position={Position.Left}
               style={{
                 top: handleTop,
-                left: leftX,
-                background: "gray",
+                left: -handleSize / 2,
                 width: handleSize,
                 height: handleSize,
+                background: "gray",
                 borderRadius: handleSize / 2,
                 zIndex: 10,
               }}
+              onMouseEnter={() => setHoveredLineId(line.id)}
+              onMouseLeave={() => setHoveredLineId(null)}
             />
+            {/* Handle kiri: target */}
             <Handle
               type="target"
               id={leftTargetId}
               position={Position.Left}
               style={{
                 top: handleTop,
-                left: leftX,
-                background: "#555",
+                left: -handleSize / 2,
                 width: handleSize,
                 height: handleSize,
+                background: "#555",
                 borderRadius: handleSize / 2,
+                zIndex: 10,
               }}
+              onMouseEnter={() => setHoveredLineId(line.id)}
+              onMouseLeave={() => setHoveredLineId(null)}
             />
 
-            {/* Teks Baris */}
+            {/* Teks baris atau input */}
             {editingLineId === line.id ? (
               <input
                 ref={lineInputRef}
@@ -234,64 +219,53 @@ const CustomNode: React.FC<CustomNodeProps> = ({
                 onBlur={finishEditingLine}
                 onKeyDown={handleLineKeyDown}
                 className="
-                  flex-1
-                  mx-2
-                  h-full
-                  px-1
-                  text-sm
-                  bg-blue-50
-                  border border-blue-300
-                  rounded
-                  focus:outline-none
-                  w-20
+                  flex-1 mx-2 h-full px-1 text-sm
+                  bg-blue-50 border border-blue-300
+                  rounded focus:outline-none
                 "
               />
             ) : (
               <div
                 onDoubleClick={() => startEditingLine(line.id, line.text)}
-                className="
-                  flex-1
-                  mx-2
-                  text-sm
-                  text-gray-800
-                  truncate
-                  cursor-text
-                  hover:bg-gray-100
-                  px-1
-                  rounded
-                "
+                className="flex-1 mx-2 text-sm text-gray-800 truncate cursor-text"
               >
                 {line.text}
               </div>
             )}
 
-            {/* Handle Kanan */}
+            {/* Handle kanan: source */}
             <Handle
               type="source"
               id={rightSourceId}
               position={Position.Right}
               style={{
                 top: handleTop,
-                right: rightX,
-                background: "gray",
+                right: -handleSize / 2,
                 width: handleSize,
                 height: handleSize,
+                background: "gray",
                 borderRadius: handleSize / 2,
                 zIndex: 10,
               }}
+              onMouseEnter={() => setHoveredLineId(line.id)}
+              onMouseLeave={() => setHoveredLineId(null)}
             />
+            {/* Handle kanan: target */}
             <Handle
               type="target"
               id={rightTargetId}
               position={Position.Right}
               style={{
                 top: handleTop,
-                right: rightX,
-                background: "#555",
+                right: -handleSize / 2,
                 width: handleSize,
                 height: handleSize,
+                background: "#555",
                 borderRadius: handleSize / 2,
+                zIndex: 10,
               }}
+              onMouseEnter={() => setHoveredLineId(line.id)}
+              onMouseLeave={() => setHoveredLineId(null)}
             />
           </div>
         );
