@@ -204,7 +204,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
               style={{
                 top: handleTop,
                 left: leftX,
-                background: "blue",
+                background: "gray",
                 width: handleSize,
                 height: handleSize,
                 borderRadius: handleSize / 2,
@@ -273,7 +273,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
               style={{
                 top: handleTop,
                 right: rightX,
-                background: "green",
+                background: "gray",
                 width: handleSize,
                 height: handleSize,
                 borderRadius: handleSize / 2,
