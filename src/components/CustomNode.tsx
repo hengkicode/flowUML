@@ -46,9 +46,10 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   const lineHeight = 24;
   const paddingY = 8;
   const handleSize = 8;
-  const totalHeight = paddingY + titleHeight + data.lines.length * lineHeight + paddingY;
+  const totalHeight =
+    paddingY + titleHeight + data.lines.length * lineHeight + paddingY;
 
-  // Title editing
+  // Edit judul
   const startEditingTitle = () => {
     setEditingTitle(true);
     setTempTitle(data.title);
@@ -76,7 +77,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
     }
   }, [editingTitle]);
 
-  // Line editing
+  // Edit baris
   const startEditingLine = (lineId: string, currentText: string) => {
     setEditingLineId(lineId);
     setTempText(currentText);
@@ -108,13 +109,13 @@ const CustomNode: React.FC<CustomNodeProps> = ({
 
   return (
     <div
-      className={`
+      className="
         relative bg-white border border-gray-300
-        rounded-md shadow-sm user-select-none
-      `}
+        rounded-md shadow-sm select-none
+      "
       style={{ width: nodeWidth, height: totalHeight }}
     >
-      {/* Title */}
+      {/* Judul */}
       <div
         className="absolute left-0 right-0 flex items-center px-2"
         style={{ top: paddingY, height: titleHeight }}
@@ -144,17 +145,16 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           </div>
         )}
       </div>
-
-      {/* Divider */}
+      {/* Garis pemisah judul */}
       <div
         className="absolute left-1 right-1 bg-gray-200"
         style={{ top: paddingY + titleHeight, height: 1 }}
       />
 
-      {/* Lines */}
+      {/* Baris */}
       {data.lines.map((line, idx) => {
         const yOffset = paddingY + titleHeight + idx * lineHeight;
-        const handleTop = (lineHeight - handleSize) / 1;
+        const handleTop = (lineHeight - handleSize) / 2;
         const isHovered = hoveredLineId === line.id;
 
         const leftSourceId = `source-left-${id}-${line.id}`;
@@ -165,14 +165,18 @@ const CustomNode: React.FC<CustomNodeProps> = ({
         return (
           <div
             key={line.id}
-            className={`absolute left-0 right-0 flex items-center px-1 ${
-              isHovered ? "bg-gray-100" : ""
-            }`}
-            style={{ top: yOffset, height: lineHeight }}
+            className="absolute left-0 right-0 flex items-center px-1"
+            style={{
+              top: yOffset,
+              height: lineHeight,
+              backgroundColor: isHovered
+                ? "rgba(229,231,235,1)"
+                : "white",
+            }}
             onMouseEnter={() => setHoveredLineId(line.id)}
             onMouseLeave={() => setHoveredLineId(null)}
           >
-            {/* Left handles */}
+            {/* Handle kiri */}
             <Handle
               type="source"
               id={leftSourceId}
@@ -202,7 +206,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
               }}
             />
 
-            {/* Line text or input + delete button */}
+            {/* Teks baris atau input */}
             {editingLineId === line.id ? (
               <input
                 ref={lineInputRef}
@@ -215,6 +219,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
                   bg-blue-50 border border-blue-300 w-20
                   rounded focus:outline-none
                 "
+                style={{ backgroundColor: "rgba(219,234,254,0.5)" }}
               />
             ) : (
               <div className="flex-1 flex items-center gap-1 mx-2">
@@ -240,7 +245,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
               </div>
             )}
 
-            {/* Right handles */}
+            {/* Handle kanan */}
             <Handle
               type="source"
               id={rightSourceId}

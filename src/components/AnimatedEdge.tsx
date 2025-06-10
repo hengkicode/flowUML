@@ -1,9 +1,15 @@
+// src/components/AnimatedEdge.tsx
 "use client";
 
 import React from "react";
-import { BaseEdge, EdgeProps, getSmoothStepPath } from "@xyflow/react";
+import {
+  EdgeProps,
+  getSmoothStepPath,
+  BaseEdge,
+} from "@xyflow/react";
 
 const AnimatedEdge: React.FC<EdgeProps> = ({
+  id,
   sourceX,
   sourceY,
   sourcePosition,
@@ -13,7 +19,7 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
   style = {},
   markerEnd,
 }) => {
-  // Dapatkan path edge dengan bentuk smooth step
+  // Dapatkan path smooth step
   const res = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -24,17 +30,23 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
   });
   const edgePath = Array.isArray(res) ? res[0] : (res as string);
 
+  // Ambil warna stroke dari style atau fallback
+  const strokeColor = typeof style.stroke === "string" ? style.stroke : "#888";
+  const strokeWidth = style.strokeWidth ?? 2;
+
+  // ID unik untuk gradient
+  const gradientId = `edge-gradient-${id}`;
+
   return (
     <>
-      {/* Definisi gradient untuk warna edge */}
       <defs>
-        <linearGradient id="edge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="100%" stopColor="#10b981" />
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor={strokeColor} stopOpacity={1} />
+          <stop offset="100%" stopColor={strokeColor} stopOpacity={0.2} />
         </linearGradient>
       </defs>
 
-      {/* Layer dasar edge abu-abu */}
+      {/* Layer dasar tipis */}
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
@@ -45,11 +57,11 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
         }}
       />
 
-      {/* Layer animasi gradasi dengan stroke dash */}
+      {/* Layer gradient animasi */}
       <path
         d={edgePath}
-        stroke="url(#edge-gradient)"
-        strokeWidth={2}
+        stroke={`url(#${gradientId})`}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
