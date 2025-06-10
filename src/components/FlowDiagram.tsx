@@ -2,11 +2,10 @@
 "use client";
 
 import React, {
-  useState,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
+  useState,
 } from "react";
 import {
   ReactFlow,
@@ -16,7 +15,7 @@ import {
   applyEdgeChanges,
   addEdge,
   MarkerType,
-  Node,
+  Node as RFNode,
   Edge,
   Connection,
   NodeChange,
@@ -27,148 +26,110 @@ import {
 import "@xyflow/react/dist/style.css";
 import CustomNode, { CustomNodeData, Line } from "./CustomNode";
 import AnimatedEdge from "./AnimatedEdge";
+import { useUndoRedo } from "../hooks/useUndoRedo";
 
 export default function FlowDiagram() {
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
-  const [nextId, setNextId] = useState(1);
-  const [selected, setSelected] = useState<{ nodes: Node[]; edges: Edge[] }>({
+  type FlowNode = RFNode;
+
+  // 1. Inisialisasi useUndoRedo dengan state kosong
+  const {
+    state: flowState,
+    set: setFlowState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoRedo<{ nodes: FlowNode[]; edges: Edge[] }>({
     nodes: [],
     edges: [],
   });
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Load dari localStorage saat mount
+  const { nodes, edges } = flowState;
+
+  // 2. Setelah mount, load data dari localStorage
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const sn = localStorage.getItem("flow-nodes");
-    if (sn) {
+    const saved = localStorage.getItem("flow-diagram");
+    if (saved) {
       try {
-        const parsedNodes: Node[] = JSON.parse(sn);
-        const normalized = parsedNodes.map((n) => {
-          const dataAny = n.data as any;
-          const title = typeof dataAny.title === "string" ? dataAny.title : `Judul ${n.id}`;
-          const lines =
-            Array.isArray(dataAny?.lines) &&
-            dataAny.lines.every(
-              (ln: any) =>
-                typeof ln.id === "string" && typeof ln.text === "string"
-            )
-              ? dataAny.lines
-              : [{ id: `${n.id}-1`, text: "Baris 1" }];
-          return { ...n, data: { title, lines } } as Node & { data: CustomNodeData };
+        const parsed = JSON.parse(saved) as { nodes: FlowNode[]; edges: Edge[] };
+        setFlowState({
+          nodes: parsed.nodes || [],
+          edges: parsed.edges || [],
         });
-        setNodes(normalized);
-      } catch {}
+      } catch {
+        // ignore parse errors
+      }
     }
-    const se = localStorage.getItem("flow-edges");
-    if (se) {
-      try {
-        const parsedEdges: Edge[] = JSON.parse(se);
-        setEdges(parsedEdges);
-      } catch {}
-    }
-  }, []);
+  }, [setFlowState]);
 
-  // Hitung nextId
-  useEffect(() => {
-    const maxId = nodes.reduce((max, n) => {
-      const num = parseInt(n.id, 10);
-      return isNaN(num) ? max : Math.max(max, num);
-    }, 0);
-    setNextId(maxId + 1);
-  }, [nodes]);
+  // 3. Simpan selected nodes & edges
+  const [selected, setSelected] = useState<{ nodes: FlowNode[]; edges: Edge[] }>({
+    nodes: [],
+    edges: [],
+  });
 
-  // Simpan ke localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("flow-nodes", JSON.stringify(nodes));
-  }, [nodes]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("flow-edges", JSON.stringify(edges));
-  }, [edges]);
-
-  // Tambah node
-  const addNewNode = () => {
-    const id = String(nextId);
-    const newNode: Node = {
-      id,
-      type: "custom",
-      position: { x: 50 + Math.random() * 300, y: 50 + Math.random() * 200 },
-      data: { title: `Judul ${id}`, lines: [{ id: `${id}-1`, text: "Baris 1" }] },
-    } as Node & { data: CustomNodeData };
-    setNodes((nds) => [...nds, newNode]);
-    setNextId((n) => n + 1);
-  };
-
-  // Tambah baris
-  const handleAddLineToSelected = () => {
-    if (selected.nodes.length === 0) return;
-    const nodeId = selected.nodes[0].id;
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id !== nodeId) return node;
-        const currLines: Line[] = (node.data as CustomNodeData).lines;
-        const newIndex = currLines.length + 1;
-        return {
-          ...node,
-          data: {
-            title: node.data.title,
-            lines: [
-              ...currLines,
-              { id: `${nodeId}-${newIndex}`, text: `Baris ${newIndex}` },
-            ],
-          },
-        } as Node & { data: CustomNodeData };
-      })
+  // 4. Hitung next numeric ID
+  const nextId = React.useMemo(() => {
+    return (
+      nodes.reduce((max, n) => {
+        const match = n.id.match(/^\d+$/);
+        if (!match) return max;
+        const num = parseInt(n.id, 10);
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 0) + 1
     );
-  };
+  }, [nodes]);
 
-  // Update baris
-  const handleChangeLineText = useCallback(
-    (nodeId: string, lineId: string, newText: string) => {
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (node.id !== nodeId) return node;
-          const updated = (node.data as CustomNodeData).lines.map((l) =>
-            l.id === lineId ? { ...l, text: newText } : l
-          );
-          return { ...node, data: { title: node.data.title, lines: updated } };
-        })
-      );
+  // 5. Helper untuk update state (push ke history)
+  const updateState = useCallback(
+    (newNodes: FlowNode[], newEdges: Edge[]) => {
+      setFlowState({ nodes: newNodes, edges: newEdges });
     },
-    []
+    [setFlowState]
   );
-  // Update judul
+
+  // 6. Handler ubah judul node
   const handleChangeTitle = useCallback(
     (nodeId: string, newTitle: string) => {
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === nodeId
-            ? { ...node, data: { title: newTitle, lines: node.data.lines } }
-            : node
-        )
-      );
+      const newNodes = nodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        const data = node.data as CustomNodeData;
+        return {
+          ...node,
+          data: { title: newTitle, lines: data.lines },
+        };
+      });
+      updateState(newNodes, edges);
     },
-    []
+    [nodes, edges, updateState]
   );
 
-  // Handlers ReactFlow
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes((nds) => applyNodeChanges(changes, nds));
-  }, []);
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges((eds) => applyEdgeChanges(changes, eds));
-  }, []);
+  // 7. Handler ubah teks baris di node
+  const handleChangeLineText = useCallback(
+    (nodeId: string, lineId: string, newText: string) => {
+      const newNodes = nodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        const data = node.data as CustomNodeData;
+        const updatedLines = data.lines.map((l) =>
+          l.id === lineId ? { ...l, text: newText } : l
+        );
+        return {
+          ...node,
+          data: { title: data.title, lines: updatedLines },
+        };
+      });
+      updateState(newNodes, edges);
+    },
+    [nodes, edges, updateState]
+  );
 
-  // nodeTypes & edgeTypes
-  const nodeTypes = useMemo(
+  // 8. Definisikan nodeTypes
+  const nodeTypes = React.useMemo(
     () => ({
       custom: (props: any) => (
         <CustomNode
           id={props.id}
-          data={props.data}
+          data={props.data as CustomNodeData}
           selected={props.selected}
           onChangeTitle={handleChangeTitle}
           onChangeLineText={handleChangeLineText}
@@ -177,47 +138,134 @@ export default function FlowDiagram() {
     }),
     [handleChangeTitle, handleChangeLineText]
   );
-  const edgeTypes = useMemo(() => ({ animated: AnimatedEdge }), []);
 
-  // onConnect: React Flow sudah memberikan sourceHandle & targetHandle sesuai handle yang dipakai
-  const onConnect = useCallback((connection: Connection) => {
-    const edgeId = `e-${connection.source}-${connection.sourceHandle}-to-${connection.target}-${connection.targetHandle}`;
-    const newEdge: Edge = {
-      ...connection,
-      id: edgeId,
-      type: "animated",
-      markerEnd: { type: MarkerType.ArrowClosed },
-      style: { strokeWidth: 2, strokeLinecap: "round" },
+  // 9. Definisikan edgeTypes
+  const edgeTypes = React.useMemo(() => ({ animated: AnimatedEdge }), []);
+
+  // 10. Handler perubahan nodes (drag, select, resize)
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const updated = applyNodeChanges(changes, nodes);
+      updateState(updated, edges);
+    },
+    [nodes, edges, updateState]
+  );
+
+  // 11. Handler perubahan edges
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      const updated = applyEdgeChanges(changes, edges);
+      updateState(nodes, updated);
+    },
+    [nodes, edges, updateState]
+  );
+
+  // 12. Handler membuat koneksi baru antar node
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      const edgeId = `e-${connection.source}-${connection.sourceHandle}-to-${connection.target}-${connection.targetHandle}`;
+      const newEdge: Edge = {
+        ...connection,
+        id: edgeId,
+        type: "animated",
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { strokeWidth: 2, strokeLinecap: "round" },
+      };
+      updateState(nodes, addEdge(newEdge, edges));
+    },
+    [nodes, edges, updateState]
+  );
+
+  // 13. Tambah node baru dengan ID numeric
+  const addNewNode = () => {
+    const id = String(nextId);
+    const newNode: FlowNode = {
+      id,
+      type: "custom",
+      position: { x: 50 + Math.random() * 300, y: 50 + Math.random() * 200 },
+      data: {
+        title: `Judul ${id}`,
+        lines: [{ id: `${id}-1`, text: "Baris 1" }],
+      } as CustomNodeData,
     };
-    setEdges((eds) => addEdge(newEdge, eds));
-  }, []);
+    updateState([...nodes, newNode], edges);
+  };
 
+  // 14. Tambah baris pada node terpilih (node pertama)
+  const handleAddLineToSelected = () => {
+    const selNode = selected.nodes[0];
+    if (!selNode) return;
+    const nodeId = selNode.id;
+    const newNodes = nodes.map((node) => {
+      if (node.id !== nodeId) return node;
+      const data = node.data as CustomNodeData;
+      const currLines: Line[] = data.lines;
+      const newIndex = currLines.length + 1;
+      return {
+        ...node,
+        data: {
+          title: data.title,
+          lines: [
+            ...currLines,
+            { id: `${nodeId}-${newIndex}`, text: `Baris ${newIndex}` },
+          ],
+        } as CustomNodeData,
+      };
+    });
+    updateState(newNodes, edges);
+  };
+
+  // 15. Simpan hasil seleksi nodes & edges
   const onSelectionChange = useCallback((sel: any) => {
-    setSelected({ nodes: sel?.nodes ?? [], edges: sel?.edges ?? [] });
+    setSelected({
+      nodes: sel?.nodes ?? [],
+      edges: sel?.edges ?? [],
+    });
   }, []);
 
-  const onInit = useCallback((instance: ReactFlowInstance) => {
-    instance.fitView();
-    instance.zoomTo(0.6);
-  }, []);
+  // 16. Hapus semua nodes & edges yang terpilih
+  const deleteSelected = useCallback(() => {
+    const remainingNodes = nodes.filter(
+      (n) => !selected.nodes.some((sn) => sn.id === n.id)
+    );
+    const remainingEdges = edges.filter(
+      (ed) => !selected.edges.some((se) => se.id === ed.id)
+    );
+    updateState(remainingNodes, remainingEdges);
+  }, [selected, nodes, edges, updateState]);
 
-  // Hapus dengan Delete
+  // 17. Shortcut keyboard: Ctrl+Z, Ctrl+Y, Delete
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const keyDownHandler = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (isCtrl && e.key === "z" && canUndo) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (isCtrl && e.key === "y" && canRedo) {
+        e.preventDefault();
+        redo();
+        return;
+      }
       if (e.key === "Delete") {
-        setNodes((nds) =>
-          nds.filter((n) => !selected.nodes.some((sn) => sn.id === n.id))
-        );
-        setEdges((eds) =>
-          eds.filter((ed) => !selected.edges.some((se) => se.id === ed.id))
-        );
+        if (selected.nodes.length === 0 && selected.edges.length === 0) return;
+        deleteSelected();
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selected]);
+    window.addEventListener("keydown", keyDownHandler);
+    return () => window.removeEventListener("keydown", keyDownHandler);
+  }, [undo, redo, canUndo, canRedo, selected, nodes, edges, deleteSelected]);
 
-  // Export/Restore
+  // 18. Simpan ke localStorage saat nodes/edges berubah
+  useEffect(() => {
+    try {
+      localStorage.setItem("flow-diagram", JSON.stringify({ nodes, edges }));
+    } catch {}
+  }, [nodes, edges]);
+
+  // 19. Export/Import file JSON
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const exportToFile = () => {
     const payload = { nodes, edges };
     const jsonString = JSON.stringify(payload, null, 2);
@@ -227,7 +275,11 @@ export default function FlowDiagram() {
     a.href = url;
     const date = new Date();
     const pad = (n: number) => n.toString().padStart(2, "0");
-    a.download = `flow-diagram-${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}.json`;
+    a.download = `flow-diagram-${date.getFullYear()}${pad(
+      date.getMonth() + 1
+    )}${pad(date.getDate())}-${pad(date.getHours())}${pad(
+      date.getMinutes()
+    )}${pad(date.getSeconds())}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -240,12 +292,10 @@ export default function FlowDiagram() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const parsed = JSON.parse(evt.target?.result as string) as {
-          nodes: Node[];
-          edges: Edge[];
-        };
-        setNodes(parsed.nodes || []);
-        setEdges(parsed.edges || []);
+        const parsed = JSON.parse(
+          evt.target?.result as string
+        ) as { nodes: FlowNode[]; edges: Edge[] };
+        updateState(parsed.nodes || [], parsed.edges || []);
       } catch {
         alert("Gagal membuka file: format JSON tidak valid.");
       }
@@ -254,7 +304,11 @@ export default function FlowDiagram() {
     e.target.value = "";
   };
 
-  const selectedNodeId = selected.nodes[0]?.id;
+  // 20. Inisialisasi ReactFlow: fit view & zoom
+  const onInit = useCallback((instance: ReactFlowInstance) => {
+    instance.fitView();
+    instance.zoomTo(0.6);
+  }, []);
 
   return (
     <div className="w-screen h-screen relative">
@@ -266,8 +320,10 @@ export default function FlowDiagram() {
       </button>
       <button
         onClick={handleAddLineToSelected}
-        disabled={!selectedNodeId}
-        className={`absolute top-14 left-2 z-10 px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 ${!selectedNodeId ? "opacity-50 cursor-not-allowed" : ""}`}
+        disabled={selected.nodes.length === 0}
+        className={`absolute top-14 left-2 z-10 px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 ${
+          selected.nodes.length === 0 ? "opacity-50 cursor-not-allowed" : ""
+        }`}
       >
         + Tambah Baris
       </button>

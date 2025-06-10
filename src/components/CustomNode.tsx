@@ -45,8 +45,8 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   const nodeWidth = 180;
   const titleHeight = 24;
   const lineHeight = 24; // sedikit diperbesar agar area klik nyaman
-  const paddingY = 4;
-  const handleSize = 12; // area klik handle lebih besar
+  const paddingY = 8;
+  const handleSize = 8; // area klik handle lebih besar
   const totalHeight = paddingY + titleHeight + data.lines.length * lineHeight + paddingY;
 
   // Edit judul
@@ -129,7 +129,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
             onKeyDown={handleTitleKeyDown}
             className="
               flex-1 h-full px-1 text-sm
-              bg-blue-50 border border-blue-300
+              bg-blue-50 border border-blue-300 w-20
               rounded focus:outline-none
             "
           />
@@ -154,7 +154,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
       {/* Baris */}
       {data.lines.map((line, idx) => {
         const yOffset = paddingY + titleHeight + idx * lineHeight;
-        const handleTop = (lineHeight - handleSize) / 2;
+        const handleTop = (lineHeight - handleSize) / 1;
 
         // IDs handle unik
         const leftSourceId = `source-left-${id}-${line.id}`;
@@ -220,7 +220,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
                 onKeyDown={handleLineKeyDown}
                 className="
                   flex-1 mx-2 h-full px-1 text-sm
-                  bg-blue-50 border border-blue-300
+                  bg-blue-50 border border-blue-300 w-20
                   rounded focus:outline-none
                 "
               />

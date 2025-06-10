@@ -1,4 +1,3 @@
-// src/components/AnimatedEdge.tsx
 "use client";
 
 import React from "react";
@@ -14,7 +13,7 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
   style = {},
   markerEnd,
 }) => {
-  // SmoothStep agar jalur orthogonal halus
+  // Dapatkan path edge dengan bentuk smooth step
   const res = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -27,7 +26,15 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
 
   return (
     <>
-      {/* Layer dasar */}
+      {/* Definisi gradient untuk warna edge */}
+      <defs>
+        <linearGradient id="edge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#10b981" />
+        </linearGradient>
+      </defs>
+
+      {/* Layer dasar edge abu-abu */}
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
@@ -37,10 +44,11 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
           ...style,
         }}
       />
-      {/* Layer animasi dashed */}
+
+      {/* Layer animasi gradasi dengan stroke dash */}
       <path
         d={edgePath}
-        stroke="#3b82f6"
+        stroke="url(#edge-gradient)"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
