@@ -68,11 +68,11 @@ export default function FlowDiagram() {
     edges: [],
   });
 
-  // 4. Hitung next numeric ID
+  // 4. Hitung next numeric ID (masih numeric; bisa ganti nanoid jika ingin unik global)
   const nextId = React.useMemo(() => {
     return (
       nodes.reduce((max, n) => {
-        const match = n.id.match(/^\d+$/);
+        const match = String(n.id).match(/^\d+$/);
         if (!match) return max;
         const num = parseInt(n.id, 10);
         return isNaN(num) ? max : Math.max(max, num);
@@ -83,9 +83,13 @@ export default function FlowDiagram() {
   // 5. Helper untuk update state (push ke history)
   const updateState = useCallback(
     (newNodes: FlowNode[], newEdges: Edge[]) => {
+      // Optional: hindari simpan jika tidak berubah
+      const sameNodes = JSON.stringify(nodes) === JSON.stringify(newNodes);
+      const sameEdges = JSON.stringify(edges) === JSON.stringify(newEdges);
+      if (sameNodes && sameEdges) return;
       setFlowState({ nodes: newNodes, edges: newEdges });
     },
-    [setFlowState]
+    [setFlowState, nodes, edges]
   );
 
   // 6. Handler ubah judul node
@@ -123,7 +127,25 @@ export default function FlowDiagram() {
     [nodes, edges, updateState]
   );
 
-  // 8. Definisikan nodeTypes
+  // 8. Handler hapus baris di node
+  const handleDeleteLine = useCallback(
+    (nodeId: string, lineId: string) => {
+      const newNodes = nodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        const data = node.data as CustomNodeData;
+        const filtered = data.lines.filter((l) => l.id !== lineId);
+        // Jika ingin menyesuaikan height atau hal lain, di CustomNode sudah dinamis berdasarkan data.lines.length
+        return {
+          ...node,
+          data: { title: data.title, lines: filtered },
+        };
+      });
+      updateState(newNodes, edges);
+    },
+    [nodes, edges, updateState]
+  );
+
+  // 9. Definisikan nodeTypes, sertakan onDeleteLine
   const nodeTypes = React.useMemo(
     () => ({
       custom: (props: any) => (
@@ -133,16 +155,17 @@ export default function FlowDiagram() {
           selected={props.selected}
           onChangeTitle={handleChangeTitle}
           onChangeLineText={handleChangeLineText}
+          onDeleteLine={handleDeleteLine}
         />
       ),
     }),
-    [handleChangeTitle, handleChangeLineText]
+    [handleChangeTitle, handleChangeLineText, handleDeleteLine]
   );
 
-  // 9. Definisikan edgeTypes
+  // 10. Definisikan edgeTypes
   const edgeTypes = React.useMemo(() => ({ animated: AnimatedEdge }), []);
 
-  // 10. Handler perubahan nodes (drag, select, resize)
+  // 11. Handler perubahan nodes (drag, select, resize)
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const updated = applyNodeChanges(changes, nodes);
@@ -151,7 +174,7 @@ export default function FlowDiagram() {
     [nodes, edges, updateState]
   );
 
-  // 11. Handler perubahan edges
+  // 12. Handler perubahan edges
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       const updated = applyEdgeChanges(changes, edges);
@@ -160,7 +183,7 @@ export default function FlowDiagram() {
     [nodes, edges, updateState]
   );
 
-  // 12. Handler membuat koneksi baru antar node
+  // 13. Handler membuat koneksi baru antar node
   const onConnect = useCallback(
     (connection: Connection) => {
       const edgeId = `e-${connection.source}-${connection.sourceHandle}-to-${connection.target}-${connection.targetHandle}`;
@@ -176,8 +199,8 @@ export default function FlowDiagram() {
     [nodes, edges, updateState]
   );
 
-  // 13. Tambah node baru dengan ID numeric
-  const addNewNode = () => {
+  // 14. Tambah node baru dengan ID numeric
+  const addNewNode = useCallback(() => {
     const id = String(nextId);
     const newNode: FlowNode = {
       id,
@@ -189,10 +212,10 @@ export default function FlowDiagram() {
       } as CustomNodeData,
     };
     updateState([...nodes, newNode], edges);
-  };
+  }, [nextId, nodes, edges, updateState]);
 
-  // 14. Tambah baris pada node terpilih (node pertama)
-  const handleAddLineToSelected = () => {
+  // 15. Tambah baris pada node terpilih (node pertama)
+  const handleAddLineToSelected = useCallback(() => {
     const selNode = selected.nodes[0];
     if (!selNode) return;
     const nodeId = selNode.id;
@@ -213,9 +236,9 @@ export default function FlowDiagram() {
       };
     });
     updateState(newNodes, edges);
-  };
+  }, [selected, nodes, edges, updateState]);
 
-  // 15. Simpan hasil seleksi nodes & edges
+  // 16. Simpan hasil seleksi nodes & edges
   const onSelectionChange = useCallback((sel: any) => {
     setSelected({
       nodes: sel?.nodes ?? [],
@@ -223,8 +246,10 @@ export default function FlowDiagram() {
     });
   }, []);
 
-  // 16. Hapus semua nodes & edges yang terpilih
+  // 17. Hapus semua nodes & edges yang terpilih
   const deleteSelected = useCallback(() => {
+    const confirmDelete = confirm("Hapus node/edge yang dipilih?");
+    if (!confirmDelete) return;
     const remainingNodes = nodes.filter(
       (n) => !selected.nodes.some((sn) => sn.id === n.id)
     );
@@ -234,7 +259,7 @@ export default function FlowDiagram() {
     updateState(remainingNodes, remainingEdges);
   }, [selected, nodes, edges, updateState]);
 
-  // 17. Shortcut keyboard: Ctrl+Z, Ctrl+Y, Delete
+  // 18. Shortcut keyboard: Ctrl+Z, Ctrl+Y, Delete, Ctrl+N, Ctrl+L
   useEffect(() => {
     const keyDownHandler = (e: KeyboardEvent) => {
       const isCtrl = e.ctrlKey || e.metaKey;
@@ -252,21 +277,41 @@ export default function FlowDiagram() {
         if (selected.nodes.length === 0 && selected.edges.length === 0) return;
         deleteSelected();
       }
+      if (isCtrl && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        addNewNode();
+      }
+      if (isCtrl && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        handleAddLineToSelected();
+      }
     };
     window.addEventListener("keydown", keyDownHandler);
     return () => window.removeEventListener("keydown", keyDownHandler);
-  }, [undo, redo, canUndo, canRedo, selected, nodes, edges, deleteSelected]);
+  }, [
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    selected,
+    deleteSelected,
+    addNewNode,
+    handleAddLineToSelected,
+  ]);
 
-  // 18. Simpan ke localStorage saat nodes/edges berubah
+  // 19. Debounce simpan ke localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem("flow-diagram", JSON.stringify({ nodes, edges }));
-    } catch {}
+    const timeout = setTimeout(() => {
+      try {
+        localStorage.setItem("flow-diagram", JSON.stringify({ nodes, edges }));
+      } catch {}
+    }, 500);
+    return () => clearTimeout(timeout);
   }, [nodes, edges]);
 
-  // 19. Export/Import file JSON
+  // 20. Export/Import file JSON
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const exportToFile = () => {
+  const exportToFile = useCallback(() => {
     const payload = { nodes, edges };
     const jsonString = JSON.stringify(payload, null, 2);
     const blob = new Blob([jsonString], { type: "application/json" });
@@ -284,7 +329,8 @@ export default function FlowDiagram() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }, [nodes, edges]);
+
   const openFileDialog = () => fileInputRef.current?.click();
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -304,7 +350,7 @@ export default function FlowDiagram() {
     e.target.value = "";
   };
 
-  // 20. Inisialisasi ReactFlow: fit view & zoom
+  // 21. Inisialisasi ReactFlow: fit view & zoom
   const onInit = useCallback((instance: ReactFlowInstance) => {
     instance.fitView();
     instance.zoomTo(0.6);
@@ -314,6 +360,7 @@ export default function FlowDiagram() {
     <div className="w-screen h-screen relative">
       <button
         onClick={addNewNode}
+        title="Ctrl+N"
         className="absolute top-2 left-2 z-10 px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
       >
         + Tambah Node
@@ -321,6 +368,7 @@ export default function FlowDiagram() {
       <button
         onClick={handleAddLineToSelected}
         disabled={selected.nodes.length === 0}
+        title="Ctrl+L (jika node terpilih)"
         className={`absolute top-14 left-2 z-10 px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 ${
           selected.nodes.length === 0 ? "opacity-50 cursor-not-allowed" : ""
         }`}

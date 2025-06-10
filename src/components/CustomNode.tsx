@@ -20,6 +20,7 @@ type CustomNodeProps = {
   selected: boolean;
   onChangeTitle: (nodeId: string, newTitle: string) => void;
   onChangeLineText: (nodeId: string, lineId: string, newText: string) => void;
+  onDeleteLine: (nodeId: string, lineId: string) => void;
 };
 
 const CustomNode: React.FC<CustomNodeProps> = ({
@@ -28,8 +29,8 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   selected,
   onChangeTitle,
   onChangeLineText,
+  onDeleteLine,
 }) => {
-  // State editing
   const [editingTitle, setEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -38,18 +39,16 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   const [tempText, setTempText] = useState("");
   const lineInputRef = useRef<HTMLInputElement>(null);
 
-  // Hover highlight
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
 
-  // Ukuran
   const nodeWidth = 180;
   const titleHeight = 24;
-  const lineHeight = 24; // sedikit diperbesar agar area klik nyaman
+  const lineHeight = 24;
   const paddingY = 8;
-  const handleSize = 8; // area klik handle lebih besar
+  const handleSize = 8;
   const totalHeight = paddingY + titleHeight + data.lines.length * lineHeight + paddingY;
 
-  // Edit judul
+  // Title editing
   const startEditingTitle = () => {
     setEditingTitle(true);
     setTempTitle(data.title);
@@ -77,7 +76,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
     }
   }, [editingTitle]);
 
-  // Edit baris
+  // Line editing
   const startEditingLine = (lineId: string, currentText: string) => {
     setEditingLineId(lineId);
     setTempText(currentText);
@@ -115,7 +114,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
       `}
       style={{ width: nodeWidth, height: totalHeight }}
     >
-      {/* Judul */}
+      {/* Title */}
       <div
         className="absolute left-0 right-0 flex items-center px-2"
         style={{ top: paddingY, height: titleHeight }}
@@ -145,25 +144,23 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           </div>
         )}
       </div>
-      {/* Garis pemisah judul */}
+
+      {/* Divider */}
       <div
         className="absolute left-1 right-1 bg-gray-200"
         style={{ top: paddingY + titleHeight, height: 1 }}
       />
 
-      {/* Baris */}
+      {/* Lines */}
       {data.lines.map((line, idx) => {
         const yOffset = paddingY + titleHeight + idx * lineHeight;
         const handleTop = (lineHeight - handleSize) / 1;
+        const isHovered = hoveredLineId === line.id;
 
-        // IDs handle unik
         const leftSourceId = `source-left-${id}-${line.id}`;
         const leftTargetId = `target-left-${id}-${line.id}`;
         const rightSourceId = `source-right-${id}-${line.id}`;
         const rightTargetId = `target-right-${id}-${line.id}`;
-
-        // Highlight jika hover
-        const isHovered = hoveredLineId === line.id;
 
         return (
           <div
@@ -175,7 +172,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
             onMouseEnter={() => setHoveredLineId(line.id)}
             onMouseLeave={() => setHoveredLineId(null)}
           >
-            {/* Handle kiri: source */}
+            {/* Left handles */}
             <Handle
               type="source"
               id={leftSourceId}
@@ -189,10 +186,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
                 borderRadius: handleSize / 2,
                 zIndex: 10,
               }}
-              onMouseEnter={() => setHoveredLineId(line.id)}
-              onMouseLeave={() => setHoveredLineId(null)}
             />
-            {/* Handle kiri: target */}
             <Handle
               type="target"
               id={leftTargetId}
@@ -206,11 +200,9 @@ const CustomNode: React.FC<CustomNodeProps> = ({
                 borderRadius: handleSize / 2,
                 zIndex: 10,
               }}
-              onMouseEnter={() => setHoveredLineId(line.id)}
-              onMouseLeave={() => setHoveredLineId(null)}
             />
 
-            {/* Teks baris atau input */}
+            {/* Line text or input + delete button */}
             {editingLineId === line.id ? (
               <input
                 ref={lineInputRef}
@@ -225,15 +217,30 @@ const CustomNode: React.FC<CustomNodeProps> = ({
                 "
               />
             ) : (
-              <div
-                onDoubleClick={() => startEditingLine(line.id, line.text)}
-                className="flex-1 mx-2 text-sm text-gray-800 truncate cursor-text"
-              >
-                {line.text}
+              <div className="flex-1 flex items-center gap-1 mx-2">
+                <div
+                  onDoubleClick={() => startEditingLine(line.id, line.text)}
+                  className="flex-1 text-sm text-gray-800 truncate cursor-text"
+                >
+                  {line.text}
+                </div>
+                {selected && (
+                  <button
+                    onClick={() => {
+                      if (confirm("Yakin ingin menghapus baris ini?")) {
+                        onDeleteLine(id, line.id);
+                      }
+                    }}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                    title="Hapus baris"
+                  >
+                    🗑
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Handle kanan: source */}
+            {/* Right handles */}
             <Handle
               type="source"
               id={rightSourceId}
@@ -247,10 +254,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
                 borderRadius: handleSize / 2,
                 zIndex: 10,
               }}
-              onMouseEnter={() => setHoveredLineId(line.id)}
-              onMouseLeave={() => setHoveredLineId(null)}
             />
-            {/* Handle kanan: target */}
             <Handle
               type="target"
               id={rightTargetId}
@@ -264,8 +268,6 @@ const CustomNode: React.FC<CustomNodeProps> = ({
                 borderRadius: handleSize / 2,
                 zIndex: 10,
               }}
-              onMouseEnter={() => setHoveredLineId(line.id)}
-              onMouseLeave={() => setHoveredLineId(null)}
             />
           </div>
         );
