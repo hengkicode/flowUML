@@ -10,11 +10,14 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.6.4",
+    "dagre": "^0.8.5",
     "nanoid": "^5.1.5",
     "next": "15.3.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-flow": "^1.0.3"
+    "react-flow": "^1.0.3",
+    "reactflow": "^11.11.4",
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
